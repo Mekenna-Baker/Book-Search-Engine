@@ -41,14 +41,12 @@ const resolvers = {
         saveBook: async (_parent: any, args: BookDocument, context: { user?: UserDocument }): Promise<UserDocument | null> => {
             if (context.user) {
                 return await User.findByIdAndUpdate(
-                    context.user._id, {
-                    $addToSet: {
-                        savedBooks: { savedBooks: args }
-                    },
+                    context.user._id,
+                     { $addToSet: { savedBooks: { savedBooks: args } },
                 },
                     { new: true }
                 ).populate('savedBooks');
-               }
+            }
             throw new AuthenticationError('You need to be logged in!');
 
         },
@@ -60,7 +58,9 @@ const resolvers = {
             return await User.findByIdAndUpdate(
                 context.user._id, {
                 $pull: {
-                    savedBooks: { bookId } } },
+                    savedBooks: { bookId }
+                }
+            },
                 { new: true }
             ).populate('savedBooks');
         }
