@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Container, Card, Button, Row, Col } from 'react-bootstrap';
-
-import { getMe, deleteBook } from '../utils/API';
+import { useQuery, useMutation } from '@apollo/client';
 import Auth from '../utils/auth';
 import { removeBookId } from '../utils/localStorage';
 import type { User } from '../models/User';
+
+import { GET_ME } from '../graphql/queries';
+import { REMOVE_BOOK } from '../graphql/mutations';
 
 const SavedBooks = () => {
   const [userData, setUserData] = useState<User>({
@@ -17,30 +19,18 @@ const SavedBooks = () => {
   // use this to determine if `useEffect()` hook needs to run again
   const userDataLength = Object.keys(userData).length;
 
-  useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const token = Auth.loggedIn() ? Auth.getToken() : null;
 
-        if (!token) {
-          return false;
-        }
+  useQuery(GET_ME, {
+    onCompleted: (data) => {
+      if (data?.me) setUserData(data.me);
+    },
+  });
 
-        const response = await getMe(token);
-
-        if (!response.ok) {
-          throw new Error('something went wrong!');
-        }
-
-        const user = await response.json();
-        setUserData(user);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    getUserData();
-  }, [userDataLength]);
+  const [removeBook] = useMutation(REMOVE_BOOK, {
+    onCompleted: (data) => {
+      if (data?.removeBook) setUserData(data.removeBook);
+    },
+  });
 
   // create function that accepts the book's mongo _id value as param and deletes the book from the database
   const handleDeleteBook = async (bookId: string) => {
@@ -51,14 +41,25 @@ const SavedBooks = () => {
     }
 
     try {
-      const response = await deleteBook(bookId, token);
+      // Apollo GraphQL mutation for book deletion
+      await removeBook({
+        variables: { bookId },
+        update: (cache) => {
+          cache.modify({
+            fields: {
+              me(existingUserData = {}) {
+                return {
+                  ...existingUserData,
+                  savedBooks: existingUserData.savedBooks.filter(
+                    (book: any) => book.bookId !== bookId
+                  ),
+                };
+              },
+            },
+          });
+        },
+      });
 
-      if (!response.ok) {
-        throw new Error('something went wrong!');
-      }
-
-      const updatedUser = await response.json();
-      setUserData(updatedUser);
       // upon success, remove book's id from localStorage
       removeBookId(bookId);
     } catch (err) {
