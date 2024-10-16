@@ -10,7 +10,7 @@ interface JwtPayload {
   email: string,
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (authHeader) {
@@ -20,14 +20,14 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
 
     jwt.verify(token, secretKey, (err, user) => {
       if (err) {
-        return res.sendStatus(403); // Forbidden
+        return next(); // Forbidden
       }
 
       req.user = user as JwtPayload;
       return next();
     });
   } else {
-    res.sendStatus(401); // Unauthorized
+    next(); // Unauthorized
   }
 };
 
